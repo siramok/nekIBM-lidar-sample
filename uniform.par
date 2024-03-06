@@ -2,7 +2,7 @@
 variableDT = yes
 dt = 1.0E-3
 targetcfl = 1.0
-writeinterval = 1000
+writeinterval = 100
 numsteps = 2000
 
 [VELOCITY]
