@@ -130,8 +130,10 @@ C         ibm_diam(nn) = 0.01
       !     = 2 implicit
       if(interm_vel.ge.1) call ibm_interm_vel
 
-      if (istep.gt.0 .and. mod(istep, iostep) == 0) then
-            call load_fld('field.f00001')
+      if (lastep == 1) then
+            if (istep.gt.0 .and. mod(istep, iostep) == 0) then
+                  call load_fld('field.f00001')
+            endif
       endif
 
       return
