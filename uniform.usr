@@ -78,7 +78,7 @@ c-----------------------------------------------------------------------
       include 'LPM'
       integer  e,f
       real    xlow, xhigh, zlow, zhigh
-
+      real ai, bi, ci, di
       common /bed_measures/ rpavg,ruy
       real pm1(lx1,ly1,lz1,lelt,3)
       integer IDP
@@ -113,8 +113,11 @@ c      Particle_shape       = 2
 
       do nn = 1, num_of_IBMpart
          n_dh(nn) = 1
-	 read(9999999,*) IDP, ibm_diam(nn), ibm_center(nn,1),
-     $         ibm_center(nn,2), ibm_center(nn,3)
+	 read(9999999,*) IDP, ai, bi, ci, di
+          ibm_diam(nn)= ai*100 
+          ibm_center(nn,1)= bi*100*0.3048*2.
+          ibm_center(nn,2)= ci*100*0.3048*2. 
+          ibm_center(nn,3)= di*100*0.3048*2.
 C         ibm_center(nn,1) = 0.0
 C         ibm_center(nn,2) = -0.015+(nn-1)*0.015
 C         ibm_center(nn,3) = 0.0
@@ -168,7 +171,7 @@ c-----------------------------------------------------------------------
 
 
       ux = 0.0
-      uy = ruy
+      uy = 0.0!ruy
       uz = 0.0
 
       return
@@ -492,7 +495,7 @@ c-----------------------------------------------------------------------------
       ntot1 = lx1*ly1*lz1*nelt
 
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      write(*,*) "Use implicit intermediate velocity solver!"
+!      write(*,*) "Use implicit intermediate velocity solver!"
 
 !     Save Vx Vy Vz to Vx_tmp, dimension ntot1 = lx1*ly1*lz1*nelt 
       call opcopy(Vx_tmp, Vy_tmp, Vz_tmp, Vx, Vy, Vz) ! save previous step

@@ -1,9 +1,16 @@
 [GENERAL]
 variableDT = yes
 dt = 1.0E-3
-targetcfl = 1.0
+targetcfl = 0.3
 writeinterval = 100
 numsteps = 2000
+
+
+dealiasing = yes
+filtering = hpfrt #hpfrt, none, explicit
+filterWeight = 20.0
+filterCutoffRatio = 0.8
+
 
 [VELOCITY]
 density = 1.00
