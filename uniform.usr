@@ -23,9 +23,9 @@ c     Box params
       Box_zmin       = -0.04    
 
 
-c      open(unit=9999999,file="particles1.dat")
-c      read(9999999,*) nnn, xlow, xhigh, zlow, zhigh
-c      close(9999999)
+      open(unit=9999999,file="particles1.dat")
+      read(9999999,*) nnn, xlow, xhigh, zlow, zhigh
+      close(9999999)
 
       nn=0      
       do i = 1, array_number
@@ -36,7 +36,7 @@ c      close(9999999)
                ibm_center(nn,2) = 0. 
                ibm_center(nn,3) = 0.
                ibm_diam(nn)     = 2.0
-               n_dh(nn)         = 1854 ! determine n_markers
+               n_dh(nn)         = nnn ! determine n_markers
             enddo
          enddo
       enddo
@@ -113,7 +113,7 @@ c     Box params
 
       open(unit=9999999,file="particles1.dat")
       read(9999999,*) nnn, xlow, xhigh, zlow, zhigh
-
+c      n_dh(1)         = nnn
 
 !     Step 2 calculate the location for each lagrange point on a plane worker
       k = n_IBMpart  ! num_of_IBMpart: total
@@ -129,9 +129,9 @@ c     Box params
 
                k = k + 1
                rtheta = real(i)/real(int(2*rpi*r/h)) * 2 * rpi              
-               rpart(jx + 0, k) = bi*100*0.3*2!
-               rpart(jx + 1, k) = ci*100*0.3*2!  ymean + j * h
-               rpart(jx + 2, k) = di*100*0.3*2! zmean + r * sin(rtheta)
+               rpart(jx + 0, k) = bi*100*0.3!
+               rpart(jx + 1, k) = ci*100*0.3!  ymean + j * h
+               rpart(jx + 2, k) = di*100*0.3! zmean + r * sin(rtheta)
                rpart(jvol, k)   =  ai*ai*ai*100*0.3*100*0.3*100*0.3
                rpart(jdp,  k)   =  ai*10*0.3*8 
                do jj =0,2
@@ -264,12 +264,6 @@ c         enddo
       !     = 1 explicit;
       !     = 2 implicit
       if(interm_vel.ge.1) call ibm_interm_vel
-
-      if (lastep == 1) then
-            if (istep.gt.0 .and. mod(istep, iostep) == 0) then
-                  call load_fld('field.f00001')
-            endif
-      endif
 
       return
       end
