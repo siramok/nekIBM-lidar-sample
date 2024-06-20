@@ -1,11 +1,163 @@
 c-----------------------------------------------------------------------
-      subroutine lpm_user_marker_distribution
+      subroutine lpm_user_particle_distribution
       include 'SIZE'
       include 'TOTAL'
       include 'LPM'
 
+c     remember each rank only has a localy copy      
+      integer i,j, array_number
+      real   square_spacing, sphere_diam
+c     Box params
+      real   Box_xmin, Box_ymin, Box_zmin
+      real   Box_xrange, Box_yrange, Box_zrange
+      integer nnn
+      common /Box_param/Box_xrange, Box_yrange, Box_zrange
+
+      rdx            =  0.1/40/5
+      array_number   =  1
+      x_spacing      =  0.02
+      sphere_diam    =  0.01
+
+      Box_xmin       = -0.04
+      Box_ymin       =  0.00
+      Box_zmin       = -0.04    
+
+
+c      open(unit=9999999,file="particles1.dat")
+c      read(9999999,*) nnn, xlow, xhigh, zlow, zhigh
+c      close(9999999)
+
+      nn=0      
+      do i = 1, array_number
+         do j = 1, 1
+            do k = 1,  array_number
+               nn = nn + 1
+               ibm_center(nn,1) = 0.
+               ibm_center(nn,2) = 0. 
+               ibm_center(nn,3) = 0.
+               ibm_diam(nn)     = 2.0
+               n_dh(nn)         = 1854 ! determine n_markers
+            enddo
+         enddo
+      enddo
+
+      ! check
+      if(nid.eq.0) then
+         if (nn.ne.num_of_IBMpart) then
+           write(6,'(A,2I4)')"IBM Particle number/array does not match"
+     $      ,nn, num_of_IBMpart
+            call exitt
+         endif
+      endif
+
       return
-      end   
+      end
+
+c-----------------------------------------------------------------------
+      subroutine lpm_user_marker_distribution
+      include 'SIZE'
+      include 'TOTAL'
+      include 'LPM'
+      
+c     Box params
+      real    Box_xmin, Box_ymin, Box_zmin
+      real    Box_xrange, Box_yrange, Box_zrange
+
+      real ai, bi,ci, di
+      real nnn
+
+      common /Box_param/Box_xrange, Box_yrange, Box_zrange
+
+      integer seq_numbering
+      real    r,h,n_dh_l
+
+      hcyl = 0.05
+
+      rpi = 4.*atan(1.0)
+      seq_numbering = 1
+      if(seq_numbering.eq.1) then
+            ! ndef: if(nid <  ndef), n_IBMpart+1
+            !       if(nid >= ndef), n_IBMpart+0
+         if(nid.lt.ndef) nsi = nid * n_IBMpart
+         if(nid.ge.ndef) nsi = ndef * (n_IBMpart + 1) + 
+     $                        (nid - ndef) * n_IBMpart
+         print*,"nid,nsi,ndef",nid,nsi,ndef
+      endif
+
+      ! assign Queen
+      do nn=1, n_IBMpart            ! number of particles in current process
+         rpart(jx + 0, nn) = ibm_center(nsi + nn, 1)
+         rpart(jx + 1, nn) = ibm_center(nsi + nn, 2)
+         rpart(jx + 2, nn) = ibm_center(nsi + nn, 3)
+         r                 = ibm_diam  (nsi + nn ) / 2.0
+         n_dh_l            = n_dh(nsi+nn) 
+         h                 = 2 * r / n_dh_l
+
+         n_l(nn) = int(2*rpi*r/h) * int(hcyl/h)
+	 if(nid.eq.1) print*, "h,ndh", h, n_dh_l, n_l(nn)
+         ! diameter and volume
+         rpart(jdp,  nn)   =  2 * r
+         rpart(jvol, nn)   =  pi * (r**2) * hcyl 
+         ! for time lagging terms
+         do j =0,2
+            rpart(jx1 + j , nn) = rpart(jx + j, nn)
+            rpart(jx2 + j , nn) = rpart(jx + j, nn)
+            rpart(jx3 + j , nn) = rpart(jx + j, nn) 
+         enddo
+
+         if(nid.eq.0)write(6,2029) nid, nn, n_l(nn), 
+     $   (rpart(jx+j,nn),j=0,2),rpart(jdp,nn),rpart(jvol,nn)  
+ 2029 format(I4,' Queen #',2I4,' xyz',3F8.3,',dp ='F8.3,', vol =',E12.4)
+      enddo
+
+
+      open(unit=9999999,file="particles1.dat")
+      read(9999999,*) nnn, xlow, xhigh, zlow, zhigh
+
+
+!     Step 2 calculate the location for each lagrange point on a plane worker
+      k = n_IBMpart  ! num_of_IBMpart: total
+      do nn = 1, nnn
+         r      = ibm_diam  (nsi + nn ) / 2.0d0
+         n_dh_l = n_dh(nsi + nn) 
+         h      = 2*r / n_dh_l
+
+         xmean = ibm_center(nsi+nn, 1) 
+         ymean = ibm_center(nsi+nn, 2)
+         zmean = ibm_center(nsi+nn, 3) 
+         read(9999999,*) IDP, ai, bi, ci, di
+
+               k = k + 1
+               rtheta = real(i)/real(int(2*rpi*r/h)) * 2 * rpi              
+               rpart(jx + 0, k) = bi*100*0.3*2!
+               rpart(jx + 1, k) = ci*100*0.3*2!  ymean + j * h
+               rpart(jx + 2, k) = di*100*0.3*2! zmean + r * sin(rtheta)
+               rpart(jvol, k)   =  ai*ai*ai*100*0.3*100*0.3*100*0.3
+               rpart(jdp,  k)   =  ai*10*0.3*8 
+               do jj =0,2
+                  rpart(jx1 + jj , k) = rpart(jx + jj, k)
+                  rpart(jx2 + jj , k) = rpart(jx + jj, k)
+                  rpart(jx3 + jj , k) = rpart(jx + jj, k)
+               enddo
+               if(nid.eq.0)write(6,'(A,2I4,3f8.4)')'Worker #',nid,k,
+     $              rpart(jx+0,k),rpart(jx+1,k),rpart(jx+2,k)
+
+      enddo
+
+
+      close(9999999)
+
+
+      ! update number of points 
+      nwe = k
+      ! check
+      do nn = 1, n_IBMpart 
+         if (n_l_max .lt. n_l(nn)) n_l_max=n_l(nn)
+      enddo
+
+      return
+      end
+
 c-----------------------------------------------------------------------
       subroutine lpm_usr_f
       include 'SIZE'
@@ -17,16 +169,13 @@ c-----------------------------------------------------------------------
       lpmforce(1) = 0.0  
       lpmforce(2) = 0.0 !-rgrav*lpmvol_p*(lpmdens_p-lpmdens_f)
       lpmforce(3) = 0.0
-
      
       ! coupled user forces
       lpmforcec(1) =  0.   ! - (lpmv_p(1) - lpmv_f(1)) / dt 
       lpmforcec(2) =  0.   ! - (lpmv_p(2) - lpmv_f(2)) / dt 
       lpmforcec(3) =  0.   ! - (lpmv_p(3) - lpmv_f(3)) / dt 
 
-c      write(6,*), lpmv_p(2), lpmv_f(2), dt
 c      write(6,*) "coupled forces",lpmforcec(1),lpmforcec(2),lpmforcec(3)
-
 c     if (lpmx_p(2)+lpmdiam_p/2.0 .gt. 0.03) lpmx_p(2) = -1
 
       return
@@ -77,55 +226,38 @@ c-----------------------------------------------------------------------
       include 'TOTAL'
       include 'LPM'
       integer  e,f
-      real    xlow, xhigh, zlow, zhigh
-      real ai, bi, ci, di
+
       common /bed_measures/ rpavg,ruy
       real pm1(lx1,ly1,lz1,lelt,3)
-      integer IDP
-      common/ibm_debug_para/ibm_debug_parastudy
-      ! for max error on particle velocity
-      
-      ibm_debug_parastudy = 1
+
+        if (nid.eq.0 .and. istep .le. 1 ) then
+c         do i = 1, nlist_ibm
+c          print*, "ngp_valsp_ibm ", nid
+c     $    ,ngp_valsp_ibm(1,i),ngp_valsp_ibm(2,i),ngp_valsp_ibm(3,i)
+c     $    ,ngp_valsp_ibm(4,i),ngp_valsp_ibm(5,i),ngp_valsp_ibm(6,i)
+c         enddo
+          write(6,'(A,4I4)')"nlist:     ",nlist, ndxgp, ndygp, ndzgp
+          write(6,'(A,4I4)')"nlist_IBM: ",nlist_ibm,ndxgp_ibm,
+     $         ndygp_ibm, ndzgp_ibm
+          write(6,'(A,3f6.3)')"bin size: ",rdxgp,rdygp,rdzgp
+          write(6,'(A,3f6.3)')"IBM bin:  ",rdxgp_ibm,rdygp_ibm,rdzgp_ibm
+          write(6,'(A,3f6.3)')"d2chk:    ", (d2chk(j),j=1,3)
+          write(6,'(A,3f6.3)')"d2chk_IBM:",(d2chk_ibm(j),j=1,3)
+        endif
 
       ifxyo=.true.
       if (istep.gt.1) ifxyo=.false.
+
+      ifIBM	= 1
+      ibm_debug = 1
+      non_spherical = 1
       
-c      if (istep .le. 50) part_force(1) = 4 ! particle drag
-c      if (istep .gt. 10) part_force(1) = 5 ! ibm
-
-      ifIBM = 1
-      ibm_debug     = 1
-      ibm_debug_queen  = 0
-      ibm_debug_worker = 0
-      ibm_debug_bin    = 0
-      ibm_debug_col    = 0
-      ioutput_debug    = 0
-      ioutput_queen    = 1
-
-      open(unit=9999999,file="particles1.dat")
-      read(9999999,*) num_of_IBMpart, xlow, xhigh, zlow, zhigh
-c      num_of_IBMpart       = 2  ! particle number
-c      Particle_shape       = 2
-      IBM_Particle_shape   = 2  ! Particle type 1 - 2D circular disk, 2 3D sphere;
+      num_of_IBMpart       = 1  ! particle number
+      IBM_Particle_shape   = 10  ! Particle type 1 - 2D circular disk, 2 3D sphere;
       IBM_marker_shape     = 2  ! marker volume 1 - 2D circular disk, 2 - sphere, 0 traditional particle
-      ipart_stationary     = 1  ! stationary particles for debug only
       ipart_moving     	   = 0  ! stationary particles for debug only
 
-      do nn = 1, num_of_IBMpart
-         n_dh(nn) = 1
-	 read(9999999,*) IDP, ai, bi, ci, di
-          ibm_diam(nn)= ai*100 
-          ibm_center(nn,1)= bi*100*0.3048*2.
-          ibm_center(nn,2)= ci*100*0.3048*2. 
-          ibm_center(nn,3)= di*100*0.3048*2.
-C         ibm_center(nn,1) = 0.0
-C         ibm_center(nn,2) = -0.015+(nn-1)*0.015
-C         ibm_center(nn,3) = 0.0
-C         ibm_diam(nn) = 0.01
-!        read()
-
-      enddo
-      close(9999999)
+      call lpm_user_particle_distribution
 
       interm_vel = 1
       !     =  0 use previous step veloicity;
@@ -151,7 +283,7 @@ c-----------------------------------------------------------------------
 
       common /bed_measures/ rpavg,ruy
 
-      ruy = 0.6
+      ruy = 1.0
 
       ux = 0.0
       uy = ruy
@@ -169,9 +301,10 @@ c-----------------------------------------------------------------------
 
       common /bed_measures/ rpavg,ruy
 
+      ruy = 1.0
 
       ux = 0.0
-      uy = 0.0!ruy
+      uy = ruy
       uz = 0.0
 
       return
@@ -198,14 +331,13 @@ c-----------------------------------------------------------------------
 
 c----------------------------------------------------------------------------
       subroutine ibm_interm_vel !(stage)
-c-----------------------------------------------------------------------------
 c     computer intermediate velocity for force calculation
 c     
       include 'SIZE'
       include 'TOTAL'
       include 'LPM'
 
-      if(nid.eq.0)write(*,*)"Start Interm Vel Solver"
+      if(nid.eq.0)write(*,*)"Intermediate Velocity Solver"
 
       ibm_force_gate = 1        ! default 
 
@@ -226,7 +358,6 @@ c-----------------------------------------------------------------------
 
 c-----------------------------------------------------------------------
       subroutine conv_interm
-c-----------------------------------------------------------------------
 c     convective term for intermediate velocity solver
 c 	  (u Grad) u
 c 	  input: u_x, u_y, u_z
@@ -296,7 +427,6 @@ c      conv_z = vx*u_zx + vy*u_zy + vz*u_zz
       
 c---------------------------------------------------------------------	
        subroutine gradpress_interm
-c---------------------------------------------------------------------	
 c     compute the pressure gradient and velocity gradient
 c	  Grad(p) -> vector
 c     Input: pr
@@ -319,10 +449,10 @@ c     Output: dpdx_interm, dpdy_interm, dpdz_interm
          
        return 
        end subroutine gradpress_interm
-
-c---------------------------------------------------------------------	
-      subroutine laplacian_interm
 c---------------------------------------------------------------------
+	
+c---------------------------------------------------------------------
+      subroutine laplacian_interm
 c     compute laplacian term intermediate velocity
 c      nabla(U) = visco
 c       Output: laplacianV1, laplacianV2, laplacianV3
@@ -390,7 +520,6 @@ c       Output: laplacianV1, laplacianV2, laplacianV3
       
 c-------------------------------------------------------------------
       subroutine explict_time_iteration
-c-------------------------------------------------------------------	   
 
         include 'SIZE'
 	include 'TOTAL'
@@ -438,12 +567,10 @@ c-------------------------------------------------------------------
 
         return
         end subroutine explict_time_iteration 
-c----------------------------------------------------------------------------------------
-      
+c-------------------------------------------------------------------      
 
 c-------------------------------------------------------------------
       subroutine compute_interm_vel_explicit
-c-------------------------------------------------------------------	   
 c       Input 
 c       : laplacianV1, laplacianV2, laplacianV3
 c       : ,dpdx_interm,dpdy_interm,dpdz_interm
@@ -453,9 +580,8 @@ c       vx_tilde = (- conv_x - dpdx_interm + laplacianV1) * dt + vx
         include 'SIZE'
 	include 'TOTAL'
 	include 'LPM'
-        
-        if(nid.eq.0)
-     $   write(*,*) "--- Use explicit intermediate velocity solver ---"
+      
+c        if(nid.eq.0)write(*,*) "---Explicit intermediate velocity"
 
 c         write(*,*) "Step 0" 
 	call gradpress_interm
@@ -469,15 +595,10 @@ c         write(*,*) "Step 4 time iteration"
 
 	return 
 	end subroutine compute_interm_vel_explicit
-c----------------------------------------------------------------------------------------
+c-----------------------------------------------------------------------------
 
-           
-
-c-----------------------------------------------------------------------------      
 c-----------------------------------------------------------------------------
       subroutine compute_interm_vel_implicit
-c-----------------------------------------------------------------------------
-c-----------------------------------------------------------------------------
       
       include 'SIZE'
       include 'TOTAL'
@@ -495,7 +616,7 @@ c-----------------------------------------------------------------------------
       ntot1 = lx1*ly1*lz1*nelt
 
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!      write(*,*) "Use implicit intermediate velocity solver!"
+      if(nid.eq.0)write(*,*) "---Implicit intermediate velocity!"
 
 !     Save Vx Vy Vz to Vx_tmp, dimension ntot1 = lx1*ly1*lz1*nelt 
       call opcopy(Vx_tmp, Vy_tmp, Vz_tmp, Vx, Vy, Vz) ! save previous step
@@ -574,7 +695,6 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       enddo
 
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-
       
 c     method 2
 c      call plan3
