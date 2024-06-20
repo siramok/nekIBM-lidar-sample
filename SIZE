@@ -46,4 +46,4 @@ c automatically added by makenek
 
 c automatically added by makenek
       integer llpart
-      parameter(llpart = 100000 ) ! Allocation for particles 
+      parameter(llpart = 200000 ) ! Allocation for particles 
